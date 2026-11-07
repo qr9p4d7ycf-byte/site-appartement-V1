@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Administration</title>
+<style>
+:root{--bg:#0b100e;--bg2:#131b17;--ink:#efe8d8;--muted:#a9a392;--gold:#c9a45c;--line:#ffffff1f}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,sans-serif;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+h1,h2{font-family:Georgia,serif;font-weight:400}
+h1{font-size:1.6rem;color:var(--gold)}h2{font-size:1.3rem;margin:26px 0 10px}
+.wrap{max-width:760px;margin:auto;padding:calc(18px + env(safe-area-inset-top)) 16px}
+label{display:grid;gap:4px;font-size:.85rem;color:var(--muted);margin-bottom:12px}
+input,textarea,select{width:100%;background:var(--bg2);color:var(--ink);border:1px solid var(--line);padding:12px;font:inherit;font-size:16px;border-radius:8px}
+textarea{min-height:90px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--gold);background:none;color:var(--ink);padding:10px 16px}
+button.p{background:var(--gold);color:#111;font-weight:600}
+button.s{padding:6px 11px;border-color:var(--line)}
+.tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:6px;overflow-x:auto;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;border-bottom:1px solid var(--line)}
+.tabs button{white-space:nowrap}.tabs .on{background:var(--gold);color:#111}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;background:#ffffff06}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.l3{display:grid;gap:8px}
+.l3 label{margin:0}
+.th{width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-bottom:10px;background:var(--bg2)}
+.bar{position:fixed;inset:auto 0 0;background:var(--bg);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;z-index:9}
+.bar span{flex:1;font-size:.9rem;color:var(--muted)}
+.ok{color:#8fd19e!important}.err{color:#ff8c8c!important}
+details{margin:12px 0;color:var(--muted);font-size:.9rem}summary{cursor:pointer;color:var(--gold)}
+ol{padding-left:20px;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const $=s=>document.querySelector(s),enc=new TextEncoder();
+const b64=s=>btoa(unescape(encodeURIComponent(s))),ub64=s=>decodeURIComponent(escape(atob(s.replace(/\s/g,''))));
+const tb=a=>btoa(String.fromCharCode(...a)),fb=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const P=(o,p)=>p.split('.').reduce((a,k)=>a?.[k],o),SET=(o,p,v)=>{const k=p.split('.'),l=k.pop();k.reduce((a,x)=>a[x],o)[l]=v};
+const NAMES={hero:'Accueil',about:'Appartement',gallery:'Galerie',amenities:'Équipements',availability:'Disponibilités',map:'Quartier',reviews:'Avis',contact:'Réserver'};
+let C,cfg,sha,tab='infos',dirty=false,bust=Date.now();
+
+async function key(code,salt){const m=await crypto.subtle.importKey('raw',enc.encode(code),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function seal(code,obj){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await key(code,salt);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,enc.encode(JSON.stringify(obj))));
+  localStorage.setItem('adm',JSON.stringify({s:tb(salt),i:tb(iv),c:tb(ct)}))}
+async function unseal(code){const o=JSON.parse(localStorage.getItem('adm')),k=await key(code,fb(o.s));
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:fb(o.i)},k,fb(o.c))))}
+const api=(p,o={})=>fetch(`https://api.github.com/repos/${cfg.repo}/contents/${p}`,{...o,headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json','Content-Type':'application/json'}});
+
+function guess(){const h=location.hostname,o=h.split('.')[0],s=location.pathname.split('/')[1];return h.endsWith('github.io')?`${o}/${s&&s!='admin.html'?s:o+'.github.io'}`:''}
+function login(msg=''){
+  const has=localStorage.getItem('adm');
+  $('#root').innerHTML=`<div class=wrap><h1>Administration</h1><p style="color:var(--muted);margin:6px 0 20px">Chalet l’étoile d’or</p>
+  ${has?`<label>Votre code<input id=code type=password autocomplete=current-password autofocus></label>
+  <div class=row><button class=p data-a=in>Entrer</button><button class=s data-a=forget>Oublier cet appareil</button></div>`
+  :`<p style="margin-bottom:14px">Première connexion sur cet appareil.</p>
+  <label>Dépôt GitHub (nom/dépôt)<input id=repo value="${esc(guess())}" placeholder="monnom/mondepot"></label>
+  <label>Clé d’accès GitHub<input id=tok type=password placeholder="github_pat_..."></label>
+  <label>Choisissez un code (6 caractères minimum)<input id=code type=password autocomplete=new-password></label>
+  <details><summary>Comment créer la clé d’accès ?</summary><ol>
+  <li>GitHub → votre photo → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token.</li>
+  <li>Repository access : Only select repositories, puis votre dépôt.</li>
+  <li>Repository permissions → Contents : Read and write.</li>
+  <li>Expiration : 1 an. Cliquez sur Generate et copiez la clé ici.</li></ol></details>
+  <button class=p data-a=setup>Enregistrer et entrer</button>`}
+  <p id=msg class=err style="margin-top:14px">${msg}</p></div>`;
+}
+async function enter(){
+  try{
+    const code=$('#code').value;
+    if(!localStorage.getItem('adm')){
+      const repo=$('#repo').value.trim(),token=$('#tok').value.trim();
+      if(code.length<6||!repo||!token)return login('Remplissez les trois champs (code de 6 caractères minimum).');
+      cfg={repo,token};await load();await seal(code,cfg);
+    }else{cfg=await unseal(code).catch(()=>null);if(!cfg)return login('Code incorrect.');await load()}
+    render();
+  }catch(e){localStorage.removeItem('adm');login(e.message||'Connexion impossible.')}
+}
+async function load(){
+  const r=await api('content.json');
+  if(r.status==401||r.status==403)throw new Error('Clé refusée : vérifiez la clé et ses droits (Contents : Read and write).');
+  if(!r.ok)throw new Error('Fichier content.json introuvable : vérifiez le nom du dépôt.');
+  const j=await r.json();sha=j.sha;C=JSON.parse(ub64(j.content));
+}
+const F=(lab,p,t='text')=>`<label>${lab}<input type=${t} data-p="${p}" value="${esc(P(C,p))}"></label>`;
+const L3=(p,ta)=>`<div class=l3>${['FR','EN','DE'].map((l,i)=>`<label>${l}${ta?`<textarea data-p="${p}.${i}">${esc(P(C,p+'.'+i))}</textarea>`:`<input data-p="${p}.${i}" value="${esc(P(C,p+'.'+i))}">`}</label>`).join('')}</div>`;
+const CTRL=(p,i)=>`<div class=row><button class=s data-a=up data-p="${p}" data-i=${i}>↑</button><button class=s data-a=dn data-p="${p}" data-i=${i}>↓</button><button class=s data-a=del data-p="${p}" data-i=${i}>Supprimer</button></div>`;
+function LIST(p,n,add){const a=P(C,p)||[];
+  return a.map((it,i)=>`<div class=card>${[...Array(n).keys()].map(k=>k<3?`<label>${['Français','English','Deutsch'][k]}<input data-p="${p}.${i}.${k}" value="${esc(it[k])}"></label>`:`<label>Distance<input data-p="${p}.${i}.${k}" value="${esc(it[k])}"></label>`).join('')}${CTRL(p,i)}</div>`).join('')
+  +`<button data-a=add data-p="${p}" data-n=${n}>+ ${add}</button>`}
+const TABS={
+infos:()=>`<h2>Contact</h2>${F('Numéro WhatsApp (format +33...)','site.whatsapp')}${F('E-mail','site.email','email')}${F('Adresse du formulaire (Formspree)','site.formEndpoint')}
+  <h2>Annonce</h2>${F('Numéro d’enregistrement','site.registration')}${F('Ville','site.city')}
+  <label>Style du site<select data-p="defaultTheme">${Object.keys(C.themes).map(t=>`<option ${t==C.defaultTheme?'selected':''}>${t}</option>`).join('')}</select></label>`,
+sections:()=>`<h2>Ordre des sections</h2>${C.sections.map((s,i)=>`<div class=card><b>${NAMES[s]||s}</b>${CTRL('sections',i).replace('Supprimer','Retirer')}</div>`).join('')}
+  <h2>Sections retirées</h2><div class=row>${Object.keys(NAMES).filter(s=>!C.sections.includes(s)).map(s=>`<button data-a=addsec data-s=${s}>+ ${NAMES[s]}</button>`).join('')||'<span style="color:var(--muted)">Aucune</span>'}</div>`,
+textes:()=>`<h2>Présentation</h2><label>Titre</label>${L3('about.title')}<label style="margin-top:12px">Texte</label>${L3('about.text',1)}
+  <h2>Points forts</h2>${LIST('about.facts',3,'Ajouter')}<h2>Équipements</h2>${LIST('amenities',3,'Ajouter un équipement')}
+  <h2>Bon à savoir</h2>${LIST('notes',3,'Ajouter une note')}<h2>Autour de l’appartement</h2>${LIST('nearby',4,'Ajouter un lieu')}`,
+photos:()=>`<h2>Photos</h2>${C.photos.map((p,i)=>`<div class=card><img class=th src="${esc(p.src)}?t=${bust}" alt="" onerror="this.style.display='none'">${L3('photos.'+i+'.alt')}
+  <div class=row><label style="margin:0">Remplacer<input type=file accept="image/*" data-rep=${i}></label></div>${CTRL('photos',i)}</div>`).join('')}
+  <label>Ajouter une photo<input type=file accept="image/*" id=newph></label>`,
+avis:()=>`<h2>Avis des voyageurs</h2>${C.reviews.map((r,i)=>`<div class=card>${F('Prénom','reviews.'+i+'.name')}${L3('reviews.'+i+'.text',1)}${CTRL('reviews',i)}</div>`).join('')}
+  <button data-a=addrv>+ Ajouter un avis</button>`};
+function render(){
+  const y=scrollY;
+  $('#root').innerHTML=`<div class=tabs>${[['infos','Infos'],['sections','Sections'],['textes','Textes'],['photos','Photos'],['avis','Avis']].map(([k,n])=>`<button data-tab=${k} class="${k==tab?'on':''}">${n}</button>`).join('')}</div>
+  <div class=wrap>${TABS[tab]()}</div><div class=bar><span id=st>${dirty?'Modifications non enregistrées':'À jour'}</span><button class=s data-a=out>Quitter</button><button class=p data-a=save>Enregistrer</button></div>`;
+  scrollTo(0,y);
+}
+const st=(t,c='')=>{const e=$('#st');if(e){e.textContent=t;e.className=c}};
+async function save(){
+  st('Enregistrement…');
+  const r=await api('content.json',{method:'PUT',body:JSON.stringify({message:'Mise à jour du contenu (admin)',content:b64(JSON.stringify(C,null,1)),sha})});
+  if(r.ok){sha=(await r.json()).content.sha;dirty=false;st('Enregistré. Le site se met à jour dans 1 à 2 minutes.','ok')}
+  else st(r.status==409||r.status==422?'Le fichier a changé ailleurs : rechargez la page.':'Échec de l’enregistrement ('+r.status+').','err');
+}
+function toJpeg(file){return new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.82).split(',')[1])};im.onerror=ko;im.src=URL.createObjectURL(file)})}
+async function upload(file,name){
+  st('Envoi de la photo…');
+  const data=await toJpeg(file),path='photos/'+name,g=await api(path),body={message:'Photo : '+name,content:data};
+  if(g.ok)body.sha=(await g.json()).sha;
+  const r=await api(path,{method:'PUT',body:JSON.stringify(body)});
+  if(!r.ok){st('Échec de l’envoi de la photo ('+r.status+').','err');return false}
+  bust=Date.now();st('Photo envoyée.','ok');return true;
+}
+const mv=(a,i,d)=>{const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]]};
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset.p&&!t.dataset.a){SET(C,t.dataset.p,t.value);dirty=true;st('Modifications non enregistrées')}});
+document.addEventListener('change',async e=>{
+  const t=e.target;if(t.type!='file'||!t.files[0])return;
+  try{
+    if(t.id=='newph'){const n=(t.files[0].name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9]+/g,'-')||'photo')+'-'+Date.now().toString(36)+'.jpg';
+      if(await upload(t.files[0],n)){C.photos.push({src:'photos/'+n,h:Math.floor(Math.random()*180)+20,alt:['','','']});dirty=true;render();st('Photo ajoutée : pensez à Enregistrer.','ok')}}
+    else if(t.dataset.rep!==undefined){const n=C.photos[+t.dataset.rep].src.replace('photos/','');if(await upload(t.files[0],n)){render();st('Photo remplacée. Elle peut mettre quelques minutes à changer sur le site.','ok')}}
+  }catch(x){st('Image illisible.','err')}
+});
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+  if(d.tab){tab=d.tab;render();return}
+  if(d.a=='in'||d.a=='setup')return enter();
+  if(d.a=='forget'){if(confirm('Supprimer la clé enregistrée sur cet appareil ?')){localStorage.removeItem('adm');login()}return}
+  if(d.a=='out'){if(!dirty||confirm('Quitter sans enregistrer ?')){C=cfg=null;dirty=false;login()}return}
+  if(d.a=='save')return save();
+  const a=d.p?P(C,d.p):null,i=+d.i;
+  if(d.a=='up')mv(a,i,-1);else if(d.a=='dn')mv(a,i,1);
+  else if(d.a=='del'){if(!confirm('Supprimer cet élément ?'))return;a.splice(i,1)}
+  else if(d.a=='add')a.push(Array(+d.n).fill(''));
+  else if(d.a=='addrv')C.reviews.push({name:'',text:['','','']});
+  else if(d.a=='addsec')C.sections.push(d.s);
+  else return;
+  dirty=true;render();
+});
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.id=='code')enter()});
+login();
+</script>
+</body>
+</html>
