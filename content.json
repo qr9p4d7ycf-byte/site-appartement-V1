@@ -8,7 +8,8 @@
   "registration": "88196190064G8",
   "lat": 48.0736,
   "lng": 6.8786,
-  "hero": "photos/exterieur.jpg"
+  "hero": "photos/exterieur.jpg",
+  "bookingEndpoint": "samuellimaux@gmail.com"
  },
  "langs": [
   "fr",
@@ -462,5 +463,38 @@
     "Die Vogesen im Winter, zum Wandern und Skifahren."
    ]
   }
- ]
+ ],
+ "pricing": {
+  "base": 0,
+  "minNights": 2,
+  "kwhPrice": 0.25,
+  "kwhPerNight": 0,
+  "seasons": [],
+  "discounts": [],
+  "note": [
+   "",
+   "",
+   ""
+  ]
+ },
+ "cal": {},
+ "discover": [],
+ "faq": [],
+ "credit": {
+  "name": "Samuel Limaux Design",
+  "url": ""
+ },
+ "legal": {
+  "owner": "",
+  "address": "",
+  "phone": "",
+  "siret": "",
+  "host": "GitHub, Inc.",
+  "hostAddr": "88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis",
+  "extra": [
+   "",
+   "",
+   ""
+  ]
+ }
 }
