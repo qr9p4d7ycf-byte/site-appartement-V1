@@ -465,10 +465,10 @@
   }
  ],
  "pricing": {
-  "base": 0,
-  "minNights": 2,
+  "base": "100",
+  "minNights": "4",
   "kwhPrice": 0.25,
-  "kwhPerNight": 0,
+  "kwhPerNight": "10",
   "seasons": [],
   "discounts": [],
   "note": [
