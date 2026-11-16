@@ -470,7 +470,20 @@
   "kwhPrice": 0.25,
   "kwhPerNight": "10",
   "cleaningFee": "25",
-  "seasons": [],
+  "seasons": [
+   {
+    "name": [
+     "",
+     "",
+     ""
+    ],
+    "from": "2026-01-01",
+    "to": "2026-12-31",
+    "price": "100",
+    "minNights": "4",
+    "kwh": "0.25"
+   }
+  ],
   "discounts": [],
   "note": [
    "prix",
