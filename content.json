@@ -469,10 +469,11 @@
   "minNights": "4",
   "kwhPrice": 0.25,
   "kwhPerNight": "10",
+  "cleaningFee": "25",
   "seasons": [],
   "discounts": [],
   "note": [
-   "",
+   "prix",
    "",
    ""
   ]
